@@ -24,6 +24,8 @@ class MicrophoneStream:
         # Create a thread-safe buffer of audio data
         self._buff = queue.Queue()
         self.closed = True
+        self._audio_stream = None
+        self._audio_interface = None
 
     def __enter__(self: object) -> object:
         self._audio_interface = pyaudio.PyAudio()
@@ -44,6 +46,14 @@ class MicrophoneStream:
         self.closed = False
 
         return self
+
+    def pause(self):
+        if self._audio_stream and self._audio_stream.is_active():
+            self._audio_stream.stop_stream()
+
+    def resume(self):
+        if self._audio_stream and not self._audio_stream.is_active():
+            self._audio_stream.start_stream()
 
     def __exit__(
         self: object,
@@ -112,7 +122,7 @@ class MicrophoneStream:
             yield b"".join(data)
 
 
-def listen_print_loop(responses: object) -> str:
+def listen_print_loop(responses: object, mic_stream=None) -> str:
     """Iterates through server responses and prints them.
 
     The responses passed is a generator that will block until a response
@@ -155,21 +165,18 @@ def listen_print_loop(responses: object) -> str:
         # some extra spaces to overwrite the previous result
         overwrite_chars = " " * (num_chars_printed - len(transcript))
 
+
         if not result.is_final:
             sys.stdout.write(transcript + overwrite_chars + "\r")
             sys.stdout.flush()
-
             num_chars_printed = len(transcript)
-
         else:
-            chatbot.respond(transcript + overwrite_chars)
-
+            chatbot.respond(transcript + overwrite_chars, mic_stream=mic_stream)
             # Exit recognition if any of the transcribed phrases could be
             # one of our keywords.
             if re.search(r"\b(exit|quit)\b", transcript, re.I):
                 print("Exiting..")
                 break
-
             num_chars_printed = 0
 
     return transcript
@@ -202,7 +209,7 @@ def main() -> None:
         responses = client.streaming_recognize(streaming_config, requests)
 
         # Now, put the transcription responses to use.
-        listen_print_loop(responses)
+        listen_print_loop(responses, mic_stream=stream)
 
 
 if __name__ == "__main__":

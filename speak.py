@@ -41,7 +41,7 @@ class Speaker:
         
         # Keep the script running until the speech is finished
         while pygame.mixer.music.get_busy():
-            pygame.time.Clock().tick(10)
+            pygame.time.Clock().tick(1)
     
     def stop(self):
         pygame.mixer.quit()
